@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Reflection;
 using LeanCode.Components;
 using LeanCode.Contracts;
@@ -6,17 +7,22 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace LeanCode.CQRS.AspNetCore.Registration;
 
-internal class CQRSObjectsRegistrationSource
+internal class CQRSObjectsRegistrationSource : ICQRSObjectSource
 {
     private readonly IServiceCollection services;
     private readonly HashSet<CQRSObjectMetadata> objects = new(new CQRSObjectMetadataEqualityComparer());
+    private readonly Lazy<FrozenDictionary<Type, CQRSObjectMetadata>> cachedMetadata;
 
     public IReadOnlySet<CQRSObjectMetadata> Objects => objects;
 
     public CQRSObjectsRegistrationSource(IServiceCollection services)
     {
         this.services = services;
+
+        cachedMetadata = new(BuildMetadata, LazyThreadSafetyMode.PublicationOnly);
     }
+
+    public CQRSObjectMetadata MetadataFor(Type type) => cachedMetadata.Value[type];
 
     public void AddCQRSObjects(TypesCatalog contractsCatalog, TypesCatalog handlersCatalog)
     {
@@ -42,6 +48,7 @@ internal class CQRSObjectsRegistrationSource
 
             if (handlerCandidates.Count() != 1)
             {
+                // TODO: shouldn't we throw here?
                 continue;
             }
 
@@ -60,12 +67,22 @@ internal class CQRSObjectsRegistrationSource
 
     public void AddCQRSObject(CQRSObjectMetadata metadata)
     {
+        if (cachedMetadata.IsValueCreated)
+        {
+            throw new InvalidOperationException("Cannot add another CQRS object after the source has been frozen.");
+        }
+
         var added = objects.Add(metadata);
 
         if (added)
         {
             services.AddCQRSHandler(metadata);
         }
+    }
+
+    private FrozenDictionary<Type, CQRSObjectMetadata> BuildMetadata()
+    {
+        return objects.ToFrozenDictionary(m => m.ObjectType);
     }
 
     private static bool ValidateContractType(TypeInfo type)

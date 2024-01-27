@@ -82,7 +82,7 @@ internal class ObjectExecutorFactory : IObjectExecutorFactory
         return await handler.ExecuteAsync(httpContext, query);
     }
 
-    private static async Task<object?> ExecuteCommandAsync<TCommand>(
+    internal static async Task<object?> ExecuteCommandAsync<TCommand>(
         HttpContext httpContext,
         CQRSRequestPayload payload
     )

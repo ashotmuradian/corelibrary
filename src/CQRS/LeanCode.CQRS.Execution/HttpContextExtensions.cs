@@ -8,6 +8,7 @@ public static class HttpContextExtensions
     public static CQRSEndpointMetadata GetCQRSEndpoint(this HttpContext httpContext)
     {
         return httpContext.GetEndpoint()?.Metadata.GetMetadata<CQRSEndpointMetadata>()
+            ?? httpContext.Features.Get<CQRSEndpointMetadata>()
             ?? throw new InvalidOperationException("Request does not contain CQRSEndpointMetadata.");
     }
 
@@ -19,5 +20,13 @@ public static class HttpContextExtensions
     public static void SetCQRSRequestPayload(this HttpContext httpContext, object payload)
     {
         httpContext.Features.Set(new CQRSRequestPayload(payload));
+    }
+
+    public static void SetCQRSEndpointMetadataForLocalExecution(
+        this HttpContext httpContext,
+        CQRSEndpointMetadata metadata
+    )
+    {
+        httpContext.Features.Set(metadata);
     }
 }
